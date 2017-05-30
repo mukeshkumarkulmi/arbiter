@@ -1,10 +1,13 @@
 ---
 killName: kill
 killMessage: "Workflow $$name$$ has failed with msg: [${wf:errorMessage(wf:lastErrorNode())}]"
-globalArgs: {
-   job-xml: ["${APP_PATH}/hive-site.xml","${APP_PATH}/job-conf.xml"],
-   name-node: ["${NAMENODE}"]
-}
+global:
+   globalArgs: {
+      job-xml: ["${APP_PATH}/hive-site.xml","${APP_PATH}/job-conf.xml"],
+      name-node: ["${NAMENODE}"]
+   }
+   configurationPosition: 2
+   properties: {"mapreduce.job.queuename": "default"}
 actionTypes:
   - tag: shell
     name: validate
