@@ -152,6 +152,21 @@ public class OozieWorkflowGenerator {
                                 .attr("to", transition.getName())
                                 .up();
                         break;
+                    case "decision":
+                        directives.add("decision")
+                                .attr("name", a.getName())
+                                .add("switch");
+                        for (WorkflowEdge edge : workflowGraph.outgoingEdgesOf(a)) {
+                            Action target = workflowGraph.getEdgeTarget(edge);
+                            directives.add("case")
+                                    .attr("to", target.getName()).set(target.getCondition())
+                                    .up();
+                        }
+                        directives.add("case")
+                        .attr("to", "end")
+                        .up();
+                        directives.up().up();
+                        break;
                     default:
                         createActionElement(a, workflowGraph, transition, a.equals(errorHandler) ? finalTransition : errorTransition, directives);
                         directives.up();
@@ -433,7 +448,7 @@ public class OozieWorkflowGenerator {
         Set<WorkflowEdge> transitions = workflowGraph.outgoingEdgesOf(a);
         // end and kill nodes do not transition at all
         // forks have multiple transitions and are handled specially
-        if (a.getType().equals("end") || a.getType().equals("kill") || a.getType().equals("fork")) {
+        if (a.getType().equals("end") || a.getType().equals("kill") || a.getType().equals("fork") || a.getType().equals("decision")) {
             return null;
         }
         // This would be a very odd case, as only forks can have multiple transitions
@@ -455,7 +470,7 @@ public class OozieWorkflowGenerator {
      * @param type The type of action to find
      * @return The action of the given type, or null if none exists
      */
-    private Action getActionByType(DirectedAcyclicGraph<Action, WorkflowEdge> workflowGraph, final String type) {
+    public static Action getActionByType(DirectedAcyclicGraph<Action, WorkflowEdge> workflowGraph, final String type) {
         List<Action> actionList = Lists.newArrayList(Collections2.filter(workflowGraph.vertexSet(), new Predicate<Action>() {
             @Override
             public boolean apply(Action input) {

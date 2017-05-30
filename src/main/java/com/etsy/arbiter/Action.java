@@ -33,7 +33,9 @@ public class Action {
     private Map<String, List<String>> positionalArgs;
     private Map<String, String> namedArgs;
     private Map<String, String> configurationProperties;
-
+    private boolean decisionNodeChild;
+    private String condition;
+    
     public String getName() {
         return name;
     }
@@ -188,4 +190,21 @@ public class Action {
                 ", configurationProperties=" + configurationProperties +
                 '}';
     }
+
+    public boolean isDecisionNodeChild() {
+        return decisionNodeChild;
+    }
+
+    public void setDecisionNodeChild(boolean decisionNodeChild) {
+        this.decisionNodeChild = decisionNodeChild;
+    }
+
+    public String getCondition() {
+        return condition;
+    }
+
+    public void setCondition(String condition) {
+        this.condition = condition;
+    }
+
 }

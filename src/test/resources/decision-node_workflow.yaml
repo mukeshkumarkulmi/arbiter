@@ -1,0 +1,14 @@
+name: Decision-node
+actions:
+  - name: validate_input
+    type: validate
+    script_file: validateInput.sh
+    dependencies: []
+  - name: filter_data
+    type: filter
+    sql_file: filter_data.hql
+    conditionalDependencies: { validate_input: "${test:elFunction()}" }
+  - name: filter_data1
+    type: filter
+    sql_file: filter_data.hql
+    conditionalDependencies: { validate_input: "${test:elFunction()}" }

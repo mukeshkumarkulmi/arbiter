@@ -1,0 +1,27 @@
+killName: kill
+killMessage: "Workflow $$name$$ has failed with msg: [${wf:errorMessage(wf:lastErrorNode())}]"
+actionTypes:
+  - tag: shell
+    name: validate
+    xmlns: uri:oozie:shell-action:0.1
+    configurationPosition: 2
+    properties: {"mapreduce.job.queuename": "default"}
+    defaultArgs: {
+      job-tracker: ["${JOBTRACKER}"],
+      name-node: ["${NAMENODE}"],
+      exec: ["$$script_file$$"],
+      argument: ["${APP_PATH}"],
+      file: ["${APP_PATH}/$$script_file$$#$$script_file$$"],
+      capture-output: [""]
+    }
+  - tag: hive
+    name: filter
+    xmlns: uri:oozie:hive-action:0.3
+    configurationPosition: 3
+    properties: {"mapreduce.job.queuename": "default"}
+    defaultArgs: {
+      job-tracker: ["${JOBTRACKER}"],
+      name-node: ["${NAMENODE}"],
+      job-xml: ["${APP_PATH}/hive-site.xml"],
+      script: ["${APP_PATH}/$$sql_file$$"]
+    }

@@ -17,17 +17,20 @@
 package com.etsy.arbiter.workflow;
 
 import com.etsy.arbiter.Action;
+import com.etsy.arbiter.OozieWorkflowGenerator;
 import com.etsy.arbiter.Workflow;
 import com.etsy.arbiter.config.Config;
 import com.etsy.arbiter.exception.WorkflowGraphException;
 import com.etsy.arbiter.util.GraphvizGenerator;
 import com.etsy.arbiter.util.NamedArgumentInterpolator;
 import com.google.common.collect.ImmutableMap;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.jgrapht.Graphs;
 import org.jgrapht.alg.ConnectivityInspector;
 import org.jgrapht.experimental.dag.DirectedAcyclicGraph;
+import org.jgrapht.experimental.dag.DirectedAcyclicGraph.CycleFoundException;
 import org.jgrapht.graph.WorkflowEdge;
 
 import java.util.*;
@@ -45,6 +48,9 @@ public class WorkflowGraphBuilder {
     // Every fork/join pair needs a unique name
     // To keep the names short, we just number them sequentially
     private static int forkCount = 0;
+    
+    // Every Decision node needs a unique name
+    private static int decisionCount = 0;
 
     /**
      * Build a workflow graph from the workflow definition, inserting fork/join pairs as appropriate for parallel
@@ -83,9 +89,27 @@ public class WorkflowGraphBuilder {
                     if (source == null) {
                         throw new WorkflowGraphException("Missing action for dependency " + d);
                     }
-
+                        
                     // Add the edge between the dep and the action
                     try {
+                        inputGraph.addDagEdge(source, a);
+                    } catch (DirectedAcyclicGraph.CycleFoundException e) {
+                        throw new WorkflowGraphException("Cycle found while building original graph", e);
+                    }
+                }
+            }
+            if(a.getConditionalDependencies() != null){
+                Map<String,String> conditionalDependencyMap = a.getConditionalDependencies(); 
+                for (String d : conditionalDependencyMap.keySet()) {
+                    Action source = actionsByName.get(d);
+                    if (source == null) {
+                        throw new WorkflowGraphException("Missing action for dependency " + d);
+                    }
+                        
+                    // Add the edge between the dep and the action
+                    try {
+                        a.setCondition(conditionalDependencyMap.get(d));
+                        a.setDecisionNodeChild(true);
                         inputGraph.addDagEdge(source, a);
                     } catch (DirectedAcyclicGraph.CycleFoundException e) {
                         throw new WorkflowGraphException("Cycle found while building original graph", e);
@@ -116,18 +140,22 @@ public class WorkflowGraphBuilder {
             start.setType("start");
             workflowGraph.addVertex(start);
             workflowGraph.addDagEdge(start, startTransitionNode);
-
-            Action end = new Action();
-            end.setName("end");
-            end.setType("end");
-            workflowGraph.addVertex(end);
+            
+            Action end = OozieWorkflowGenerator.getActionByType(workflowGraph, "end");
+            if(end == null){
+                end = new Action();
+                end.setName("end");
+                end.setType("end");
+                workflowGraph.addVertex(end);
+            }
 
             if (workflow.getErrorHandler() != null) {
                 workflowGraph.addVertex(workflow.getErrorHandler());
                 workflowGraph.addDagEdge(workflow.getErrorHandler(), end);
                 workflowGraph.addDagEdge(endTransitionNode, workflow.getErrorHandler());
             } else {
-                workflowGraph.addDagEdge(endTransitionNode, end);
+                if(workflowGraph.outDegreeOf(endTransitionNode) == 0 && !end.equals(endTransitionNode))
+                    workflowGraph.addDagEdge(endTransitionNode, end);
             }
 
             // The kill node will be used as the error transition when generating the XML as appropriate
@@ -238,24 +266,51 @@ public class WorkflowGraphBuilder {
             Graphs.addGraph(result, subSubgraph);
         }
 
+        Action decision = null, end = null;
         // If we have more than one subcomponent, we must insert a fork/join to run them in parallel
         if (componentGraphs.size() > 1) {
-            Pair<Action, Action> forkJoin = addForkJoin(result);
-            Action fork = forkJoin.getLeft();
-            Action join = forkJoin.getRight();
+            Pair<Action, Action> forkJoin = null;
+            Action fork = null, join = null;
+            
             for (DirectedAcyclicGraph<Action, WorkflowEdge> subSubgraph : componentGraphs) {
                 for (Action vertex : subSubgraph.vertexSet()) {
-                    // Vertices with no incoming edges attach directly to the fork
-                    if (subSubgraph.inDegreeOf(vertex) == 0) {
-                        result.addDagEdge(fork, vertex);
-                    }
-                    // Vertices with no outgoing edges attach directly to the join
-                    if (subSubgraph.outDegreeOf(vertex) == 0) {
-                        result.addDagEdge(vertex, join);
+                    if(!vertex.isDecisionNodeChild()) {
+                        
+                        if(forkJoin == null) {
+                            forkJoin = addForkJoin(result);
+                            fork = forkJoin.getLeft();
+                            join = forkJoin.getRight();
+                        }
+                        
+                        // Vertices with no incoming edges attach directly to the fork
+                        if (subSubgraph.inDegreeOf(vertex) == 0) {
+                            result.addDagEdge(fork, vertex);
+                        }
+                        // Vertices with no outgoing edges attach directly to the join
+                        if (subSubgraph.outDegreeOf(vertex) == 0) {
+                            result.addDagEdge(vertex, join);
+                        }
+                    } else {
+                        // Decision Node detected
+                        int outDegree = subSubgraph.outDegreeOf(vertex);
+                        addDecisionNode(result, decision, end, vertex, outDegree);
                     }
                 }
             }
+            
+        }else if(componentGraphs.size() == 1){
+            DirectedAcyclicGraph<Action, WorkflowEdge> subSubgraph = componentGraphs.get(0);
+            
+            for (Action vertex : subSubgraph.vertexSet()) {
+                int outDegree = subSubgraph.outDegreeOf(vertex);
+                if(vertex.isDecisionNodeChild()) {
+                    // Decision Node detected
+                    addDecisionNode(result, decision, end, vertex, outDegree);
+                }
+            }
+            
         }
+        
 
         // The graph will now have one node with no outgoing edges and one node with no incoming edges
         // The node with no outgoing edges is the "last" node in the resulting graph
@@ -327,5 +382,33 @@ public class WorkflowGraphBuilder {
         parentGraph.addVertex(join);
 
         return Pair.of(fork, join);
+    }
+    
+    private static Action createDecisionNode(DirectedAcyclicGraph<Action, WorkflowEdge> parentGraph) {
+        
+        Action decision = new Action();
+        decision.setName("decision-" + decisionCount);
+        decision.setType("decision");
+        decisionCount++;
+        parentGraph.addVertex(decision);
+
+        return decision;
+    }
+    
+    private static void addDecisionNode(DirectedAcyclicGraph<Action, WorkflowEdge> result, Action decision, Action end, Action vertex, int outDegree) throws CycleFoundException {
+        if (decision == null)
+            decision = createDecisionNode(result);
+        result.addDagEdge(decision, vertex);
+        
+        // Should be only one outgoing node, So adding end if no child node found
+        if(outDegree == 0) {
+            if (end == null) {
+                end = new Action();
+                end.setName("end");
+                end.setType("end");
+            }
+            result.addVertex(end);
+            result.addDagEdge(vertex, end);
+        }
     }
 }
