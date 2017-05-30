@@ -162,7 +162,7 @@ public class OozieWorkflowGenerator {
                                     .attr("to", target.getName()).set(target.getCondition())
                                     .up();
                         }
-                        directives.add("case")
+                        directives.add("default")
                         .attr("to", "end")
                         .up();
                         directives.up().up();
