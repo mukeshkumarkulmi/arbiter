@@ -1,0 +1,11 @@
+---
+name: GlobalVariable
+actions:
+  - name: validate_input
+    type: validate
+    script_file: validateInput.sh
+    dependencies: []
+  - name: filter_data
+    type: filter
+    sql_file: filter_data.hql
+    dependencies: [validate_input]

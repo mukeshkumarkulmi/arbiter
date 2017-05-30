@@ -115,6 +115,14 @@ public class ConfigurationMerger {
                 return input.getKillMessage();
             }
         }));
+        
+        //TODO Need to create a function for merging global node across multiple config yaml
+        mergedConfig.setGlobalArgs(getFirstNonNull(configs, new Function<Config, Map<String, List<String>>>() {
+            @Override
+            public Map<String, List<String>> apply(Config input) {
+                return input.getGlobalArgs();
+            }
+        }));
         mergedConfig.setActionTypes(actionTypes);
 
         return mergedConfig;

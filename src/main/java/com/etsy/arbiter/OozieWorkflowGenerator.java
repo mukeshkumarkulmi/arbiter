@@ -108,6 +108,7 @@ public class OozieWorkflowGenerator {
             Directives directives = new Directives();
             createRootElement(workflow.getName(), directives);
 
+            Action global = getActionByType(workflowGraph, "global");
             Action kill = getActionByType(workflowGraph, "kill");
             Action end = getActionByType(workflowGraph, "end");
             Action start = getActionByType(workflowGraph, "start");
@@ -116,7 +117,16 @@ public class OozieWorkflowGenerator {
 
             Action errorTransition = errorHandler == null ? (kill == null ? end : kill) : errorHandler;
             DepthFirstIterator<Action, WorkflowEdge> iterator = new DepthFirstIterator<>(workflowGraph, start);
-
+            
+            // Add global node to the directive for xml.
+            if (global != null) {
+                directives.add("global");
+                for (Map.Entry<String, List<String>> entry : global.getPositionalArgs().entrySet()) {
+                    addKeyMultiValueElements(entry, directives);
+                }
+                directives.up();
+            }
+            
             while (iterator.hasNext()) {
                 Action a = iterator.next();
                 Action transition = getTransition(workflowGraph, a);

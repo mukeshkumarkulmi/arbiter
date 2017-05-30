@@ -20,6 +20,7 @@ import org.yaml.snakeyaml.TypeDescription;
 import org.yaml.snakeyaml.constructor.Constructor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents a complete Arbiter configuration
@@ -44,7 +45,8 @@ public class Config {
     private List<ActionType> actionTypes;
     private String killName;
     private String killMessage;
-
+    private Map<String, List<String>> globalArgs;
+    
     public List<ActionType> getActionTypes() {
         return actionTypes;
     }
@@ -69,6 +71,14 @@ public class Config {
         this.killMessage = killMessage;
     }
 
+    public Map<String, List<String>> getGlobalArgs() {
+        return globalArgs;
+    }
+
+    public void setGlobalArgs(Map<String, List<String>> globalArgs) {
+        this.globalArgs = globalArgs;
+    }
+    
     /**
      * Sets the precedence for this Config
      *
@@ -116,6 +126,9 @@ public class Config {
         if (killName != null ? !killName.equals(config.killName) : config.killName != null) {
             return false;
         }
+        if (globalArgs != null ? !globalArgs.equals(config.globalArgs) : config.globalArgs != null) {
+            return false;
+        }
 
         return true;
     }
@@ -125,6 +138,7 @@ public class Config {
         int result = actionTypes != null ? actionTypes.hashCode() : 0;
         result = 31 * result + (killName != null ? killName.hashCode() : 0);
         result = 31 * result + (killMessage != null ? killMessage.hashCode() : 0);
+        result = 31 * result + (globalArgs != null ? globalArgs.hashCode() : 0);
         return result;
     }
 
@@ -134,6 +148,8 @@ public class Config {
                 "actionTypes=" + actionTypes +
                 ", killName='" + killName + '\'' +
                 ", killMessage='" + killMessage + '\'' +
+                ", globalArgs=" + globalArgs + '\'' +
                 '}';
     }
+
 }
