@@ -16,11 +16,10 @@
 
 package com.etsy.arbiter.config;
 
+import java.util.List;
+
 import org.yaml.snakeyaml.TypeDescription;
 import org.yaml.snakeyaml.constructor.Constructor;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * Represents a complete Arbiter configuration
@@ -45,7 +44,7 @@ public class Config {
     private List<ActionType> actionTypes;
     private String killName;
     private String killMessage;
-    private Map<String, List<String>> globalArgs;
+    private Global global;
     
     public List<ActionType> getActionTypes() {
         return actionTypes;
@@ -70,13 +69,13 @@ public class Config {
     public void setKillMessage(String killMessage) {
         this.killMessage = killMessage;
     }
-
-    public Map<String, List<String>> getGlobalArgs() {
-        return globalArgs;
+    
+    public Global getGlobal() {
+        return global;
     }
 
-    public void setGlobalArgs(Map<String, List<String>> globalArgs) {
-        this.globalArgs = globalArgs;
+    public void setGlobal(Global global) {
+        this.global = global;
     }
     
     /**
@@ -126,7 +125,7 @@ public class Config {
         if (killName != null ? !killName.equals(config.killName) : config.killName != null) {
             return false;
         }
-        if (globalArgs != null ? !globalArgs.equals(config.globalArgs) : config.globalArgs != null) {
+        if (global != null ? !global.equals(config.global) : config.global != null) {
             return false;
         }
 
@@ -138,7 +137,7 @@ public class Config {
         int result = actionTypes != null ? actionTypes.hashCode() : 0;
         result = 31 * result + (killName != null ? killName.hashCode() : 0);
         result = 31 * result + (killMessage != null ? killMessage.hashCode() : 0);
-        result = 31 * result + (globalArgs != null ? globalArgs.hashCode() : 0);
+        result = 31 * result + (global != null ? global.hashCode() : 0);
         return result;
     }
 
@@ -148,7 +147,7 @@ public class Config {
                 "actionTypes=" + actionTypes +
                 ", killName='" + killName + '\'' +
                 ", killMessage='" + killMessage + '\'' +
-                ", globalArgs=" + globalArgs + '\'' +
+                ", global=" + global + '\'' +
                 '}';
     }
 

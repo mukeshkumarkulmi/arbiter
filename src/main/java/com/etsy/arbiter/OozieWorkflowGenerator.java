@@ -18,6 +18,7 @@ package com.etsy.arbiter;
 
 import com.etsy.arbiter.config.ActionType;
 import com.etsy.arbiter.config.Config;
+import com.etsy.arbiter.config.Global;
 import com.etsy.arbiter.exception.WorkflowGraphException;
 import com.etsy.arbiter.util.GraphvizGenerator;
 import com.etsy.arbiter.util.NamedArgumentInterpolator;
@@ -108,7 +109,22 @@ public class OozieWorkflowGenerator {
             Directives directives = new Directives();
             createRootElement(workflow.getName(), directives);
 
-            Action global = getActionByType(workflowGraph, "global");
+         // Add global node to the directive for xml.
+            if (config.getGlobal() != null) {
+                Global globalNode = config.getGlobal();
+                directives.add("global");
+                int configurationPosition = globalNode.getConfigurationPosition();
+                int i = 1;
+                for (Map.Entry<String, List<String>> entry : globalNode.getGlobalArgs().entrySet()) {
+                    if (configurationPosition == i) {
+                        createConfigurationElement(globalNode.getProperties(), directives);
+                    }
+                    addKeyMultiValueElements(entry, directives);
+                    i++;
+                }
+                directives.up();
+            }
+            
             Action kill = getActionByType(workflowGraph, "kill");
             Action end = getActionByType(workflowGraph, "end");
             Action start = getActionByType(workflowGraph, "start");
@@ -117,15 +133,6 @@ public class OozieWorkflowGenerator {
 
             Action errorTransition = errorHandler == null ? (kill == null ? end : kill) : errorHandler;
             DepthFirstIterator<Action, WorkflowEdge> iterator = new DepthFirstIterator<>(workflowGraph, start);
-            
-            // Add global node to the directive for xml.
-            if (global != null) {
-                directives.add("global");
-                for (Map.Entry<String, List<String>> entry : global.getPositionalArgs().entrySet()) {
-                    addKeyMultiValueElements(entry, directives);
-                }
-                directives.up();
-            }
             
             while (iterator.hasNext()) {
                 Action a = iterator.next();

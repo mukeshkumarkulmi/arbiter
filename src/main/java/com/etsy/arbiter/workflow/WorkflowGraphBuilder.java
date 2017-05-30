@@ -140,15 +140,6 @@ public class WorkflowGraphBuilder {
                 workflowGraph.addVertex(kill);
             }
             
-            // Add global node, Use same Action class for creating a global node Vertes in DAG,
-            // Using PositionalArgs variable to map Global variables
-            if (config.getGlobalArgs() != null && config.getKillName() != null) {
-                Action global = new Action();
-                global.setType("global");
-                global.setName("global");
-                global.setPositionalArgs(config.getGlobalArgs());
-                workflowGraph.addVertex(global);
-            }
         } catch (DirectedAcyclicGraph.CycleFoundException e) {
             throw new WorkflowGraphException("Cycle found while generating workflow", e);
         }
