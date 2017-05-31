@@ -474,7 +474,10 @@ public class OozieWorkflowGenerator {
         List<Action> actionList = Lists.newArrayList(Collections2.filter(workflowGraph.vertexSet(), new Predicate<Action>() {
             @Override
             public boolean apply(Action input) {
-                return input.getType().equals(type);
+                if (input != null && input.getType() != null) {
+                    return input.getType().equals(type);
+                }
+                return false;
             }
         }));
         if (actionList.size() > 0) {

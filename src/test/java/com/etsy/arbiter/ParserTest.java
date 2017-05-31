@@ -78,7 +78,7 @@ public class ParserTest {
 
     @Test
     public void testReadWithConditionalDependencies() {
-        Workflow actual = parser.read(getClass().getClassLoader().getResource("decision_node_workflow.yaml"));
+        Workflow actual = parser.read(getClass().getClassLoader().getResource("testdecision_node_workflow.yaml"));
 
         Workflow expected = new Workflow();
         expected.setName("name");

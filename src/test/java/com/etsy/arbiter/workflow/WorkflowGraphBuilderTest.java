@@ -48,10 +48,13 @@ public class WorkflowGraphBuilderTest {
         workflow.setName("workflow");
         Action a1 = new Action();
         a1.setName("a1");
+        a1.setType("a1");
         Action a2 = new Action();
         a2.setName("a2");
+        a2.setType("a2");
         Action a3 = new Action();
         a3.setName("a3");
+        a3.setType("a3");
 
         workflow.setActions(Arrays.asList(a1, a2, a3));
 

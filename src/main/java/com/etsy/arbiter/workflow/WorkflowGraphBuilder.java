@@ -98,8 +98,8 @@ public class WorkflowGraphBuilder {
                     }
                 }
             }
-            if(a.getConditionalDependencies() != null){
-                Map<String,String> conditionalDependencyMap = a.getConditionalDependencies(); 
+            if (a.getConditionalDependencies() != null) {
+                Map<String, String> conditionalDependencyMap = a.getConditionalDependencies();
                 for (String d : conditionalDependencyMap.keySet()) {
                     Action source = actionsByName.get(d);
                     if (source == null) {
@@ -142,7 +142,7 @@ public class WorkflowGraphBuilder {
             workflowGraph.addDagEdge(start, startTransitionNode);
             
             Action end = OozieWorkflowGenerator.getActionByType(workflowGraph, "end");
-            if(end == null){
+            if (end == null) {
                 end = new Action();
                 end.setName("end");
                 end.setType("end");
@@ -151,11 +151,22 @@ public class WorkflowGraphBuilder {
 
             if (workflow.getErrorHandler() != null) {
                 workflowGraph.addVertex(workflow.getErrorHandler());
-                workflowGraph.addDagEdge(workflow.getErrorHandler(), end);
-                workflowGraph.addDagEdge(endTransitionNode, workflow.getErrorHandler());
-            } else {
-                if(workflowGraph.outDegreeOf(endTransitionNode) == 0 && !end.equals(endTransitionNode))
-                    workflowGraph.addDagEdge(endTransitionNode, end);
+
+                // Add Error Handler Action before the end node
+                if (end.equals(endTransitionNode)) {
+                    for (WorkflowEdge edge : workflowGraph.edgesOf(end)) {
+                        Action source = workflowGraph.getEdgeSource(edge);
+                        workflowGraph.removeEdge(edge);
+                        workflowGraph.addDagEdge(source, workflow.getErrorHandler());
+                    }
+                    workflowGraph.addDagEdge(workflow.getErrorHandler(), end);
+                } else {
+                    workflowGraph.addDagEdge(workflow.getErrorHandler(), end);
+                    workflowGraph.addDagEdge(endTransitionNode, workflow.getErrorHandler());
+                }
+
+            } else if (workflowGraph.outDegreeOf(endTransitionNode) == 0 && !end.equals(endTransitionNode)) {
+                workflowGraph.addDagEdge(endTransitionNode, end);
             }
 
             // The kill node will be used as the error transition when generating the XML as appropriate
@@ -266,17 +277,21 @@ public class WorkflowGraphBuilder {
             Graphs.addGraph(result, subSubgraph);
         }
 
-        Action decision = null, end = null;
+        Action decision = null;
+        Action end = null;
         // If we have more than one subcomponent, we must insert a fork/join to run them in parallel
         if (componentGraphs.size() > 1) {
             Pair<Action, Action> forkJoin = null;
-            Action fork = null, join = null;
-            
+            Action fork = null;
+            Action join = null;
+
             for (DirectedAcyclicGraph<Action, WorkflowEdge> subSubgraph : componentGraphs) {
                 for (Action vertex : subSubgraph.vertexSet()) {
-                    if(!vertex.isDecisionNodeChild()) {
-                        
-                        if(forkJoin == null) {
+                    
+                    if (!vertex.isDecisionNodeChild() && vertex.getType() != null && !vertex.getType().equals("decision")
+                            && !vertex.getType().equals("end")) {
+
+                        if (forkJoin == null) {
                             forkJoin = addForkJoin(result);
                             fork = forkJoin.getLeft();
                             join = forkJoin.getRight();
@@ -290,22 +305,26 @@ public class WorkflowGraphBuilder {
                         if (subSubgraph.outDegreeOf(vertex) == 0) {
                             result.addDagEdge(vertex, join);
                         }
-                    } else {
+                    } else if (vertex.getType() != null && !vertex.getType().equals("end")) {
                         // Decision Node detected
                         int outDegree = subSubgraph.outDegreeOf(vertex);
-                        addDecisionNode(result, decision, end, vertex, outDegree);
+                        int inDegree = subSubgraph.inDegreeOf(vertex);
+                        decision = addDecisionNode(result, decision, end, vertex, outDegree, inDegree);
                     }
                 }
             }
             
-        }else if(componentGraphs.size() == 1){
+        } else if (componentGraphs.size() == 1) {
             DirectedAcyclicGraph<Action, WorkflowEdge> subSubgraph = componentGraphs.get(0);
-            
+
             for (Action vertex : subSubgraph.vertexSet()) {
                 int outDegree = subSubgraph.outDegreeOf(vertex);
-                if(vertex.isDecisionNodeChild()) {
+                int inDegree = subSubgraph.inDegreeOf(vertex);
+                if (vertex.isDecisionNodeChild()) {
                     // Decision Node detected
-                    addDecisionNode(result, decision, end, vertex, outDegree);
+                    decision = addDecisionNode(result, decision, end, vertex, outDegree, inDegree);
+                } else if (decision != null) {
+                    vertex.setDecisionNodeChild(true);
                 }
             }
             
@@ -395,13 +414,17 @@ public class WorkflowGraphBuilder {
         return decision;
     }
     
-    private static void addDecisionNode(DirectedAcyclicGraph<Action, WorkflowEdge> result, Action decision, Action end, Action vertex, int outDegree) throws CycleFoundException {
-        if (decision == null)
-            decision = createDecisionNode(result);
-        result.addDagEdge(decision, vertex);
-        
+    private static Action addDecisionNode(DirectedAcyclicGraph<Action, WorkflowEdge> result, Action decision, Action end, Action vertex,
+            int outDegree, int inDegree) throws CycleFoundException {
+        if (inDegree == 0) {
+            if (decision == null) {
+                decision = createDecisionNode(result);
+            }
+            result.addDagEdge(decision, vertex);
+        }
+
         // Should be only one outgoing node, So adding end if no child node found
-        if(outDegree == 0) {
+        if (outDegree == 0 && !vertex.getType().equals("end")) {
             if (end == null) {
                 end = new Action();
                 end.setName("end");
@@ -410,5 +433,7 @@ public class WorkflowGraphBuilder {
             result.addVertex(end);
             result.addDagEdge(vertex, end);
         }
+
+        return decision;
     }
 }
